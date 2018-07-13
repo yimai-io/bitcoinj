@@ -45,10 +45,6 @@ import org.bitcoinj.core.BitcoinSerializer;
  */
 public abstract class AbstractBitcoinNetParams extends NetworkParameters {
 
-    /**
-     * Scheme part for Bitcoin URIs.
-     */
-    public static final String BITCOIN_SCHEME = "bitcoin";
     public static final int REWARD_HALVING_INTERVAL = 210000;
 
     private static final Logger log = LoggerFactory.getLogger(AbstractBitcoinNetParams.class);
@@ -143,38 +139,8 @@ public abstract class AbstractBitcoinNetParams extends NetworkParameters {
                     Long.toHexString(newTargetCompact) + " vs " + Long.toHexString(receivedTargetCompact));
     }
 
-    @Override
-    public Coin getMaxMoney() {
-        return MAX_MONEY;
-    }
-
-    @Override
-    public Coin getMinNonDustOutput() {
-        return Transaction.MIN_NONDUST_OUTPUT;
-    }
-
-    @Override
     public MonetaryFormat getMonetaryFormat() {
         return new MonetaryFormat();
     }
 
-    @Override
-    public int getProtocolVersionNum(final ProtocolVersion version) {
-        return version.getBitcoinProtocolVersion();
-    }
-
-    @Override
-    public BitcoinSerializer getSerializer(boolean parseRetain) {
-        return new BitcoinSerializer(this, parseRetain);
-    }
-
-    @Override
-    public String getUriScheme() {
-        return BITCOIN_SCHEME;
-    }
-
-    @Override
-    public boolean hasMaxMoney() {
-        return true;
-    }
 }

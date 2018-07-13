@@ -19,6 +19,7 @@ package org.bitcoinj.core;
 
 import org.bitcoinj.core.TransactionConfidence.ConfidenceType;
 import org.bitcoinj.crypto.TransactionSignature;
+import org.bitcoinj.params.Networks;
 import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptError;
@@ -28,6 +29,7 @@ import org.bitcoinj.signers.TransactionSigner;
 import org.bitcoinj.utils.ExchangeRate;
 import org.bitcoinj.wallet.Wallet;
 import org.bitcoinj.wallet.WalletTransaction.Pool;
+import org.bitcoinj.params.Networks.Family;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -126,12 +128,17 @@ public class Transaction extends ChildMessage {
     public static final int WITNESS_SCALE_FACTOR = 4;
 
     // These are bitcoin serialized.
-    private long version;
-    private ArrayList<TransactionInput> inputs;
-    private ArrayList<TransactionOutput> outputs;
+    private long version; // all
+    private Sha256Hash preBlockHash; // bcd
+    private long txTime; // !btc,bcd
+    private byte txTokenId; // !btc,bcd
+    private byte[] extraBytes; // !btc,bcd
+    private ArrayList<TransactionInput> inputs; // all
+    private ArrayList<TransactionOutput> outputs; // all
     private ArrayList<TransactionWitness> witnesses;
 
-    private long lockTime;
+    private long lockTime; // all
+
 
     // This is either the time the transaction was broadcast as measured from the local clock, or the time from the
     // block in which it was included. Note that this can be changed by re-orgs so the wallet may update this field.
@@ -209,6 +216,27 @@ public class Transaction extends ChildMessage {
         witnesses = new ArrayList<>();
         // We don't initialize appearsIn deliberately as it's only useful for transactions stored in the wallet.
         length = 8; // 8 for std fields
+
+        Family txFamily = Networks.getFamily(params);
+
+        if (txFamily == Family.BITCOINDIAMOND) {
+            version = 12;
+            preBlockHash = Sha256Hash.ONE_HASH;
+            length += 32;
+        }
+
+        if (txFamily == Family.PEERCOIN || txFamily == Family.NUBITS || txFamily == Family.REDDCOIN && this.version > 1L || txFamily == Family.VPNCOIN || txFamily == Family.CLAMS) {
+            txTime = (new Date()).getTime() / 1000L;
+            length += 4;
+        }
+
+        if (txFamily == Family.NUBITS) {
+            txTokenId = params.getTokenId();
+        }
+
+        if (txFamily == Family.VPNCOIN || (txFamily == Family.CLAMS || txFamily == Family.SOLARCOIN) && this.version > 1L) {
+            extraBytes = new byte[0];
+        }
     }
 
     /**
@@ -334,6 +362,10 @@ public class Transaction extends ChildMessage {
      */
     public String getHashAsString() {
         return getHash().toString();
+    }
+
+    public String getHashAsString(boolean segwit) {
+        return getHash(segwit).toString();
     }
 
     /**
@@ -635,10 +667,21 @@ public class Transaction extends ChildMessage {
         hash = null;
     }
 
-    protected static int calcLength(byte[] buf, int offset) {
+    protected static int calcLength(byte[] buf, int offset, NetworkParameters params) {
         VarInt varint;
         // jump past version (uint32)
         int cursor = offset + 4;
+
+        varint = new VarInt(buf, cursor);
+        long version = varint.value;
+
+        if (Networks.isFamily(params, Family.BITCOINDIAMOND)) {
+            cursor += 32;
+        }
+
+        if (Networks.isFamily(params, Family.PEERCOIN, Family.NUBITS, Family.VPNCOIN, Family.CLAMS)) {
+            cursor += 4;
+        }
 
         int i;
         long scriptLen;
@@ -668,16 +711,40 @@ public class Transaction extends ChildMessage {
             cursor += scriptLen + varint.getOriginalSizeInBytes();
         }
         // 4 = length of lock_time field (uint32)
-        return cursor - offset + 4;
+        cursor += 4;
+
+        if (Networks.isFamily(params, Family.REDDCOIN) && version > 1L) {
+            cursor += 4;
+        }
+
+        if (Networks.isFamily(params, Family.NUBITS)) {
+            ++cursor;
+        }
+
+        if (Networks.isFamily(params, Family.VPNCOIN) || Networks.isFamily(params, Family.CLAMS, Family.SOLARCOIN) && version > 1L) {
+            varint = new VarInt(buf, cursor);
+            cursor = (int)((long)cursor + varint.value + (long)varint.getOriginalSizeInBytes());
+        }
+
+        return cursor - offset;
     }
 
     @Override
     protected void parse() throws ProtocolException {
         boolean witSupported = (transactionOptions & TransactionOptions.WITNESS) != 0;
         cursor = offset;
-
         version = readUint32();
         optimalEncodingMessageSize = 4;
+
+        if (params.getFamily() == Family.BITCOINDIAMOND) {
+            preBlockHash = readHash();
+            optimalEncodingMessageSize += 32;
+        }
+
+        if (Networks.isFamily(params, Family.PEERCOIN, Family.NUBITS, Family.VPNCOIN, Family.CLAMS)) {
+            txTime = readUint32();
+            optimalEncodingMessageSize = 4;
+        }
 
         // First come the inputs.
         readInputs();
@@ -704,13 +771,30 @@ public class Transaction extends ChildMessage {
 
         lockTime = readUint32();
         optimalEncodingMessageSize += 4;
+
+        if (Networks.isFamily(params, Family.REDDCOIN) && version > 1) {
+            txTime = readUint32();
+            optimalEncodingMessageSize = 4;
+        }
+
+        if (Networks.isFamily(params, Family.NUBITS)) {
+            txTokenId = readBytes(1)[0];
+            ++optimalEncodingMessageSize;
+        }
+
+        if (Networks.isFamily(params, Family.VPNCOIN) || Networks.isFamily(params, Family.CLAMS, Family.SOLARCOIN) && version > 1) {
+            int extraBytesLength = (int)readVarInt();
+            extraBytes = readBytes(extraBytesLength);
+            optimalEncodingMessageSize += VarInt.sizeOf(extraBytesLength) + extraBytesLength;
+        }
+
         length = cursor - offset;
 
         witnesses = witnesses == null ? new ArrayList<TransactionWitness>() : witnesses;
     }
 
     private void readWitness() {
-        witnesses = new ArrayList<TransactionWitness>(inputs.size());
+        witnesses = new ArrayList<>(inputs.size());
         for (int i = 0; i < inputs.size(); i++) {
             long pushCount = readVarInt();
             TransactionWitness witness = new TransactionWitness((int) pushCount);
@@ -785,12 +869,20 @@ public class Transaction extends ChildMessage {
         return inputs.size() == 1 && inputs.get(0).isCoinBase();
     }
 
+    public boolean isCoinStake() {
+        if (!Networks.isFamily(params, Family.PEERCOIN, Family.NUBITS, Family.REDDCOIN, Family.VPNCOIN, Family.CLAMS, Family.SOLARCOIN)) {
+            return false;
+        } else {
+            return inputs.size() > 0 && !(inputs.get(0)).isCoinBase() && outputs.size() >= 2 && (outputs.get(0)).isNull();
+        }
+    }
+
     /**
      * A transaction is mature if it is either a building coinbase tx that is as deep or deeper than the required
      * coinbase depth, or a non-coinbase tx.
      */
     public boolean isMature() {
-        if (!isCoinBase())
+        if (!isCoinBase() && !isCoinStake())
             return true;
 
         if (getConfidence().getConfidenceType() != ConfidenceType.BUILDING)
@@ -1506,9 +1598,27 @@ public class Transaction extends ChildMessage {
     }
 
     protected void bitcoinSerializeToStream(OutputStream stream, int transactionOptions) throws IOException {
+        bitcoinSerializeToStream(stream, transactionOptions, true);
+    }
+
+    protected void bitcoinSerializeToStream(OutputStream stream, int transactionOptions, boolean includeExtensions) throws IOException {
         boolean witSupported = (transactionOptions & TransactionOptions.WITNESS) != 0;
         boolean serializeWit = hasWitness() && witSupported;
         uint32ToByteStreamLE(version, stream);
+
+        if (params.getFamily() == Family.BITCOINDIAMOND) {
+            if (preBlockHash != null) {
+                byte[] preBlockHashBytes = Utils.reverseBytes(preBlockHash.getBytes());
+                if (preBlockHashBytes != null && preBlockHashBytes.length != 0) {
+                    stream.write(preBlockHashBytes);
+                }
+            }
+        }
+
+        if (Networks.isFamily(params, Family.PEERCOIN, Family.NUBITS, Family.VPNCOIN, Family.CLAMS) && includeExtensions) {
+            Utils.uint32ToByteStreamLE(txTime, stream);
+        }
+
         if (serializeWit) {
             stream.write(new byte[]{0, 1});
         }
@@ -1532,8 +1642,24 @@ public class Transaction extends ChildMessage {
         }
 
         uint32ToByteStreamLE(lockTime, stream);
-    }
 
+        if (Networks.isFamily(params, Family.REDDCOIN) && version > 1 && includeExtensions) {
+            Utils.uint32ToByteStreamLE(txTime, stream);
+        }
+
+        if (Networks.isFamily(params, Family.NUBITS) && includeExtensions) {
+            stream.write(txTokenId);
+        }
+
+        if ((Networks.isFamily(params, Family.VPNCOIN) || Networks.isFamily(params, Family.CLAMS, Family.SOLARCOIN) && version > 1) && includeExtensions) {
+            if (extraBytes != null && extraBytes.length != 0) {
+                stream.write((new VarInt((long)extraBytes.length)).encode());
+                stream.write(extraBytes);
+            } else {
+                stream.write((new VarInt(0L)).encode());
+            }
+        }
+    }
 
     /**
      * Transactions can have an associated lock time, specified either as a block height or in seconds since the
@@ -1576,7 +1702,38 @@ public class Transaction extends ChildMessage {
 
     public void setVersion(int version) {
         this.version = version;
-        unCache();
+    }
+
+    public Sha256Hash getPreBlockHash() {
+        return preBlockHash;
+    }
+
+    public void setPreBlockHash(Sha256Hash preBlockHash) {
+        this.preBlockHash = preBlockHash;
+    }
+
+    public long getTime() {
+        return txTime;
+    }
+
+    public void setTime(long time) {
+        txTime = time;
+    }
+
+    public byte getTokenId() {
+        return txTokenId;
+    }
+
+    public void setTokenId(byte tokenId) {
+        txTokenId = tokenId;
+    }
+
+    public byte[] getExtraBytes() {
+        return extraBytes;
+    }
+
+    public void setExtraBytes(byte[] extraBytes) {
+        this.extraBytes = extraBytes;
     }
 
     /** Returns an unmodifiable view of all inputs. */

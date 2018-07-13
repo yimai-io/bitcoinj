@@ -193,6 +193,10 @@ public class TransactionOutput extends ChildMessage {
         this.value = value.value;
     }
 
+    public boolean isNull() {
+        return value == -1;
+    }
+
     /**
      * Gets the index of this output in the parent transaction, or throws if this output is free standing. Iterates
      * over the parents list to discover this.
@@ -344,7 +348,7 @@ public class TransactionOutput extends ChildMessage {
         try {
             Script script = getScriptPubKey();
             StringBuilder buf = new StringBuilder("TxOut of ");
-            buf.append(Coin.valueOf(value).toFriendlyString());
+            buf.append(getValue().toFriendlyString());
             if (script.isSentToAddress() || script.isPayToScriptHash())
                 buf.append(" to ").append(script.getToAddress(params));
             else if (script.isSentToRawPubKey())
@@ -415,7 +419,7 @@ public class TransactionOutput extends ChildMessage {
 
     /** Returns a copy of the output detached from its containing transaction, if need be. */
     public TransactionOutput duplicateDetached() {
-        return new TransactionOutput(params, null, Coin.valueOf(value), org.spongycastle.util.Arrays.clone(scriptBytes));
+        return new TransactionOutput(params, null, getValue(), org.spongycastle.util.Arrays.clone(scriptBytes));
     }
 
     @Override

@@ -65,7 +65,7 @@ public class TransactionInput extends ChildMessage {
      */
     public static final long SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
 
-    private static final byte[] EMPTY_ARRAY = new byte[0];
+    public static final byte[] EMPTY_ARRAY = new byte[0];
     // Magic outpoint index that indicates the input is in fact unconnected.
     private static final long UNCONNECTED = 0xFFFFFFFFL;
 
