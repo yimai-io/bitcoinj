@@ -1,6 +1,5 @@
 apply plugin: 'java'
-apply plugin: 'com.google.protobuf'
-apply plugin: 'maven'
+apply plugin: 'com.github.johnrengelman.plugin-shadow'
 
 version = '0.15-SNAPSHOT'
 archivesBaseName = 'bitcoinj-core'
@@ -41,4 +40,24 @@ task sourcesJar(type: Jar, dependsOn: classes) {
 artifacts {
     archives sourcesJar
     archives javadocJar
+}
+
+task generateProto() {
+    String protoDir = "${projectDir}/src/main/proto"
+
+    FileTree tree = fileTree(dir: protoDir)
+
+    tree.each {
+        File file ->
+            exec {
+                executable "protoc"
+                args "-I${protoDir}",
+                        "--java_out=${projectDir}/src/main/java",
+                        "${file.path}"
+            }
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.compile]
 }
