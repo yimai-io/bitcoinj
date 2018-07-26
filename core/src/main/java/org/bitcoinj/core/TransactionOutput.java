@@ -193,6 +193,10 @@ public class TransactionOutput extends ChildMessage {
         this.value = value.value;
     }
 
+    public boolean isNull() {
+        return value == -1;
+    }
+
     /**
      * Gets the index of this output in the parent transaction, or throws if this output is free standing. Iterates
      * over the parents list to discover this.

@@ -855,6 +855,10 @@ public class ECKey implements EncryptableItem {
         return signMessage(message, null);
     }
 
+    public String signMessage(String message, @Nullable KeyParameter aesKey) throws KeyCrypterException {
+        return this.signMessage(Utils.BITCOIN_SIGNED_MESSAGE_HEADER_BYTES, message, aesKey);
+    }
+
     /**
      * Signs a text message using the standard Bitcoin messaging signing format and returns the signature as a base64
      * encoded string.
@@ -862,8 +866,8 @@ public class ECKey implements EncryptableItem {
      * @throws IllegalStateException if this ECKey does not have the private part.
      * @throws KeyCrypterException if this ECKey is encrypted and no AESKey is provided or it does not decrypt the ECKey.
      */
-    public String signMessage(String message, @Nullable KeyParameter aesKey) throws KeyCrypterException {
-        byte[] data = Utils.formatMessageForSigning(message);
+    public String signMessage(byte[] headerBytes, String message, @Nullable KeyParameter aesKey) throws KeyCrypterException {
+        byte[] data = Utils.formatMessageForSigning(headerBytes, message);
         Sha256Hash hash = Sha256Hash.twiceOf(data);
         ECDSASignature sig = sign(hash, aesKey);
         // Now we have to work backwards to figure out the recId needed to recover the signature.
@@ -885,6 +889,10 @@ public class ECKey implements EncryptableItem {
         return new String(Base64.encode(sigData), Charset.forName("UTF-8"));
     }
 
+    public static ECKey signedMessageToKey(String message, String signatureBase64) throws SignatureException {
+        return signedMessageToKey(Utils.BITCOIN_SIGNED_MESSAGE_HEADER_BYTES, message, signatureBase64);
+    }
+
     /**
      * Given an arbitrary piece of text and a Bitcoin-format message signature encoded in base64, returns an ECKey
      * containing the public key that was used to sign it. This can then be compared to the expected public key to
@@ -896,7 +904,7 @@ public class ECKey implements EncryptableItem {
      * @param signatureBase64 The Bitcoin-format message signature in base64
      * @throws SignatureException If the public key could not be recovered or if there was a signature format error.
      */
-    public static ECKey signedMessageToKey(String message, String signatureBase64) throws SignatureException {
+    public static ECKey signedMessageToKey(byte[] headerBytes, String message, String signatureBase64) throws SignatureException {
         byte[] signatureEncoded;
         try {
             signatureEncoded = Base64.decode(signatureBase64);
@@ -915,7 +923,7 @@ public class ECKey implements EncryptableItem {
         BigInteger r = new BigInteger(1, Arrays.copyOfRange(signatureEncoded, 1, 33));
         BigInteger s = new BigInteger(1, Arrays.copyOfRange(signatureEncoded, 33, 65));
         ECDSASignature sig = new ECDSASignature(r, s);
-        byte[] messageBytes = Utils.formatMessageForSigning(message);
+        byte[] messageBytes = Utils.formatMessageForSigning(headerBytes, message);
         // Note that the C++ code doesn't actually seem to specify any character encoding. Presumably it's whatever
         // JSON-SPIRIT hands back. Assume UTF-8 for now.
         Sha256Hash messageHash = Sha256Hash.twiceOf(messageBytes);

@@ -24,7 +24,6 @@ import org.bitcoinj.core.Block;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.StoredBlock;
-import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.Utils;
 import org.bitcoinj.utils.MonetaryFormat;
 import org.bitcoinj.core.VerificationException;
@@ -41,10 +40,6 @@ import org.bitcoinj.core.BitcoinSerializer;
  * Parameters for Bitcoin-like networks.
  */
 public abstract class AbstractBitcoinNetParams extends NetworkParameters {
-    /**
-     * Scheme part for Bitcoin URIs.
-     */
-    public static final String BITCOIN_SCHEME = "bitcoin";
 
     private static final Logger log = LoggerFactory.getLogger(AbstractBitcoinNetParams.class);
 
@@ -124,38 +119,7 @@ public abstract class AbstractBitcoinNetParams extends NetworkParameters {
                     Long.toHexString(newTargetCompact) + " vs " + Long.toHexString(receivedTargetCompact));
     }
 
-    @Override
-    public Coin getMaxMoney() {
-        return MAX_MONEY;
-    }
-
-    @Override
-    public Coin getMinNonDustOutput() {
-        return Transaction.MIN_NONDUST_OUTPUT;
-    }
-
-    @Override
     public MonetaryFormat getMonetaryFormat() {
         return new MonetaryFormat();
-    }
-
-    @Override
-    public int getProtocolVersionNum(final ProtocolVersion version) {
-        return version.getBitcoinProtocolVersion();
-    }
-
-    @Override
-    public BitcoinSerializer getSerializer(boolean parseRetain) {
-        return new BitcoinSerializer(this, parseRetain);
-    }
-
-    @Override
-    public String getUriScheme() {
-        return BITCOIN_SCHEME;
-    }
-
-    @Override
-    public boolean hasMaxMoney() {
-        return true;
     }
 }

@@ -19,6 +19,7 @@ package org.bitcoinj.core;
 
 import com.google.common.base.Objects;
 import org.bitcoinj.core.Block;
+import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.StoredBlock;
 import org.bitcoinj.core.VerificationException;
 import org.bitcoinj.net.discovery.*;
@@ -88,11 +89,16 @@ public abstract class NetworkParameters {
     protected int majorityRejectBlockOutdated;
     protected int majorityWindow;
 
+    protected int transactionVersion = 1;
+    protected byte tokenId;
+
     /**
      * See getId(). This may be null for old deserialized wallets. In that case we derive it heuristically
      * by looking at the port number.
      */
     protected String id;
+
+    protected Object family;
 
     /**
      * The depth of blocks required for a coinbase transaction to be spendable.
@@ -199,6 +205,14 @@ public abstract class NetworkParameters {
         return id;
     }
 
+    public Object getFamily() {
+        return this.family;
+    }
+
+    public String getFamilyString() {
+        return this.family == null ? "" : this.family.toString();
+    }
+
     public abstract String getPaymentProtocolId();
 
     @Override
@@ -254,7 +268,9 @@ public abstract class NetworkParameters {
      *
      * @throws VerificationException if the block's difficulty is not correct.
      */
-    public abstract void checkDifficultyTransitions(StoredBlock storedPrev, Block next, final BlockStore blockStore) throws VerificationException, BlockStoreException;
+    public void checkDifficultyTransitions(StoredBlock storedPrev, Block next, final BlockStore blockStore) throws VerificationException, BlockStoreException{
+
+    }
 
     /**
      * Returns true if the block height is either not a checkpoint, or is a checkpoint and the hash matches.
@@ -395,30 +411,38 @@ public abstract class NetworkParameters {
      * network. Where not applicable, a very large number of coins is returned
      * instead (i.e. the main coin issue for Dogecoin).
      */
-    public abstract Coin getMaxMoney();
+    public Coin getMaxMoney() {
+        return MAX_MONEY;
+    }
 
     /**
      * Any standard (ie pay-to-address) output smaller than this value will
      * most likely be rejected by the network.
      */
-    public abstract Coin getMinNonDustOutput();
+    public Coin getMinNonDustOutput() {
+        return Transaction.MIN_NONDUST_OUTPUT;
+    }
 
     /**
-     * The monetary object for this currency.
+     * Scheme part for Bitcoin URIs.
      */
-    public abstract MonetaryFormat getMonetaryFormat();
+    public static final String BITCOIN_SCHEME = "bitcoin";
 
     /**
      * Scheme part for URIs, for example "bitcoin".
      */
-    public abstract String getUriScheme();
+    public String getUriScheme() {
+        return BITCOIN_SCHEME;
+    }
 
     /**
      * Returns whether this network has a maximum number of coins (finite supply) or
      * not. Always returns true for Bitcoin, but exists to be overriden for other
      * networks.
      */
-    public abstract boolean hasMaxMoney();
+    public boolean hasMaxMoney() {
+        return true;
+    }
 
     /**
      * Return the default serializer for this network. This is a shared serializer.
@@ -445,7 +469,9 @@ public abstract class NetworkParameters {
     /**
      * Construct and return a custom serializer.
      */
-    public abstract BitcoinSerializer getSerializer(boolean parseRetain);
+    public BitcoinSerializer getSerializer(boolean parseRetain) {
+        return new BitcoinSerializer(this, parseRetain);
+    }
 
     /**
      * The number of blocks in the last {@link getMajorityWindow()} blocks
@@ -521,7 +547,17 @@ public abstract class NetworkParameters {
         return verifyFlags;
     }
 
-    public abstract int getProtocolVersionNum(final ProtocolVersion version);
+    public byte getTokenId() {
+        return tokenId;
+    }
+
+    public int getTransactionVersion() {
+        return transactionVersion;
+    }
+
+    public int getProtocolVersionNum(final ProtocolVersion version) {
+        return version.getBitcoinProtocolVersion();
+    }
 
     public static enum ProtocolVersion {
         MINIMUM(70000),
