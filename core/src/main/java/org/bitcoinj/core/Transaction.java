@@ -126,6 +126,7 @@ public class Transaction extends ChildMessage {
 
     // These are bitcoin serialized.
     private long version;
+    private Sha256Hash preBlockHash;
     private long txTime;
     private byte txTokenId;
     private byte[] extraBytes;
@@ -208,7 +209,15 @@ public class Transaction extends ChildMessage {
         outputs = new ArrayList<TransactionOutput>();
         // We don't initialize appearsIn deliberately as it's only useful for transactions stored in the wallet.
         length = 8; // 8 for std fields
+
         Family txFamily = Networks.getFamily(params);
+
+        if (txFamily == Family.BITCOINDIAMOND) {
+            version = 12;
+            preBlockHash = Sha256Hash.ONE_HASH;
+            length += 32;
+        }
+
         if (txFamily == Family.PEERCOIN || txFamily == Family.NUBITS || txFamily == Family.REDDCOIN && this.version > 1L || txFamily == Family.VPNCOIN || txFamily == Family.CLAMS) {
             txTime = (new Date()).getTime() / 1000L;
             length += 4;
@@ -542,6 +551,11 @@ public class Transaction extends ChildMessage {
 
         varint = new VarInt(buf, cursor);
         long version = varint.value;
+
+        if (Networks.isFamily(params, Family.BITCOINDIAMOND)) {
+            cursor += 32;
+        }
+
         if (Networks.isFamily(params, Family.PEERCOIN, Family.NUBITS, Family.VPNCOIN, Family.CLAMS)) {
             cursor += 4;
         }
@@ -597,6 +611,11 @@ public class Transaction extends ChildMessage {
 
         version = readUint32();
         optimalEncodingMessageSize = 4;
+
+        if (Networks.isFamily(params, Family.BITCOINDIAMOND)) {
+            preBlockHash = readHash();
+            optimalEncodingMessageSize += 32;
+        }
 
         if (Networks.isFamily(params, Family.PEERCOIN, Family.NUBITS, Family.VPNCOIN, Family.CLAMS)) {
             txTime = readUint32();
@@ -1141,6 +1160,15 @@ public class Transaction extends ChildMessage {
     protected void bitcoinSerializeToStream(OutputStream stream, boolean includeExtensions) throws IOException {
         uint32ToByteStreamLE(version, stream);
 
+        if (Networks.isFamily(params, Family.BITCOINDIAMOND)) {
+            if (preBlockHash != null) {
+                byte[] preBlockHashBytes = Utils.reverseBytes(preBlockHash.getBytes());
+                if (preBlockHashBytes != null && preBlockHashBytes.length != 0) {
+                    stream.write(preBlockHashBytes);
+                }
+            }
+        }
+
         if (Networks.isFamily(params, Family.PEERCOIN, Family.NUBITS, Family.VPNCOIN, Family.CLAMS) && includeExtensions) {
             Utils.uint32ToByteStreamLE(txTime, stream);
         }
@@ -1213,6 +1241,14 @@ public class Transaction extends ChildMessage {
 
     public void setVersion(int version) {
         this.version = version;
+    }
+
+    public Sha256Hash getPreBlockHash() {
+        return preBlockHash;
+    }
+
+    public void setPreBlockHash(Sha256Hash preBlockHash) {
+        this.preBlockHash = preBlockHash;
     }
 
     public long getTime() {

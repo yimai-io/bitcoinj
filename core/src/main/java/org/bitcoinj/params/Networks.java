@@ -38,6 +38,7 @@ public class Networks {
     private static final Pattern vpncoinFamily = Pattern.compile(".*(vpncoin).*");
     private static final Pattern clamsFamily = Pattern.compile(".*(clams).*");
     private static final Pattern solarcoinFamily = Pattern.compile(".*(solarcoin).*");
+    private static final Pattern bitcoinDiamondFamily = Pattern.compile(".*(bitcoindiamond).*");
 
     /** Registered networks */
     private static Set<? extends NetworkParameters> networks = ImmutableSet.of(TestNet3Params.get(), MainNetParams.get());
@@ -100,8 +101,8 @@ public class Networks {
 
     public static Networks.Family getFamily(NetworkParameters network) {
         if (network != null && network.getFamily() != null) {
-            if (bitcoinFamily.matcher(network.getFamilyString()).matches()) {
-                return Networks.Family.BITCOIN;
+            if (bitcoinDiamondFamily.matcher(network.getFamilyString()).matches()) {
+                return Family.BITCOINDIAMOND;
             } else if (peercoinFamily.matcher(network.getFamilyString()).matches()) {
                 return Networks.Family.PEERCOIN;
             } else if (nubitsFamily.matcher(network.getFamilyString()).matches()) {
@@ -112,6 +113,8 @@ public class Networks {
                 return Networks.Family.VPNCOIN;
             } else if (clamsFamily.matcher(network.getFamilyString()).matches()) {
                 return Networks.Family.CLAMS;
+            } else if (bitcoinFamily.matcher(network.getFamilyString()).matches()) {
+                return Family.BITCOIN;
             } else {
                 return solarcoinFamily.matcher(network.getFamilyString()).matches() ? Networks.Family.SOLARCOIN : Networks.Family.BITCOIN;
             }
@@ -122,6 +125,7 @@ public class Networks {
 
     public static enum Family {
         BITCOIN,
+        BITCOINDIAMOND,
         REDDCOIN,
         PEERCOIN,
         NUBITS,

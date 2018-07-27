@@ -404,4 +404,47 @@ public class TransactionTest {
             };
         }
     }
+
+    public static class BCDNetWork extends MainNetParams {
+
+        public BCDNetWork() {
+            family = "bitcoindiamond";
+        }
+    }
+
+    @Test
+    public void testDecodeTBTCTx() {
+        String rawTx = "0200000001974a420827a1c2db4b8d2f489ef265c8d21d869ee1b52e3df11d568d6156403a" +
+                "010000006b483045022100fe7ea5726698edae2247c7c28fb6e689140139da7839f94dc72e1aa86bb" +
+                "a5702022070782476f06f036a24561bf76333337350d760f8e5c36df6d1673bf2dadcf79c01210380" +
+                "0e3712791aa2834b429e375642358e84952b12f54c8b05520ce3c754231f00feffffff0280a4bf070" +
+                "000000017a91477eeca7a9edffccf68eccc55cd5664aad69da5e48768e9bb13010000001976a91490" +
+                "6d2cbb36d22007f27b2fd8eb635abb12a929a988accca41400";
+
+        byte[] payload = Utils.HEX.decode(rawTx);
+        NetworkParameters parameters = TestNet3Params.get();
+        Transaction tx = new Transaction(parameters, payload);
+
+        Assert.assertEquals("0c709769c22af0a3a35c563cdffa668484c58c30c8f1f87367922c705c56f88d", tx.getHashAsString());
+    }
+
+    @Test
+    public void testDecodeTBCDTx() {
+        String rawTx = "0c000000325a009f7f0b29fb6f9c681fe0005725f2ff6fc8e38b7a19ff0cfb31e0d8917a01e" +
+                "d04be1f46871d652d4feb5e104861557c57899ad327be9e5da48677e5c27e8b01000000da004730440" +
+                "22018e5691431d439e18102ab0f550b391e0b9486d6fc01d8bb527478bf38c10a9002206a5d772c7bd" +
+                "f0dda09e85e310cea8824c0b9f53e5a8feaa7d505fd3acf12d1e901483045022100fa336cddb26528d" +
+                "7e497e5147bb67ad7d71d1aa91006eaadb87a9a7f937233e402203953948065b038901509650555d78" +
+                "61fcf049171ea8daaa593c66781aca9a9480147522102947e6c1ffd39ae0f746d75826b6abe84de542" +
+                "a98f5e23d6dadcef5c9da6aeae421030abc0e2be1a48f4563a5389ee45f574bcd2016da612f21a76d2" +
+                "c7f66fe1f4ac352aeffffffff0140420f00000000001976a914ec689070e65c5ad21308e19d74eaf55" +
+                "8df02205d88ac00000000";
+
+        byte[] payload = Utils.HEX.decode(rawTx);
+        NetworkParameters parameters = new BCDNetWork();
+        Transaction tx = new Transaction(parameters, payload);
+
+        Assert.assertEquals("0fcec3eed017a13bcf7969c4dad95ee0b4f2b3b66da45b509a976abe11eaf001", tx.getHashAsString());
+    }
+
 }

@@ -39,6 +39,13 @@ public class Sha256Hash implements Serializable, Comparable<Sha256Hash> {
     public static final int LENGTH = 32; // bytes
     public static final Sha256Hash ZERO_HASH = wrap(new byte[LENGTH]);
 
+    public static final Sha256Hash ONE_HASH = wrap(new byte[]{
+            1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1
+    });
+
     private final byte[] bytes;
 
     /**
